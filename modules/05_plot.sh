@@ -1,5 +1,5 @@
 #!/bin/bash
-# modules/04_plot.sh
+# modules/05_plot.sh
 
 BAM_FILE="${DIR_BAM}/${FOLDER_BASENAME}_aligned.sorted.bam"
 PY_SCRIPT="${PY_SCRIPT_DIR}/WGSmapping.py"
@@ -10,7 +10,7 @@ echo "[MODULE: PLOT] Running Linear Pile-up visualization..."
 echo "  - Window Radius: +/- $WINDOW_SIZE bp"
 
 # === [修改点] 增加 --window 参数传递 ===
-python3 "$PY_SCRIPT" \
+python "$PY_SCRIPT" \
     --bam "$BAM_FILE" \
     --chromosome "$CHROMOSOME" \
     --center "$CENTER_POSITION" \

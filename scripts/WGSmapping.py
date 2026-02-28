@@ -1,4 +1,5 @@
 import subprocess
+import csv
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
@@ -100,6 +101,94 @@ def get_read_intervals(bam_file, chrom, start, end):
     except Exception as e:
         print(f"[ERROR] 读取 Reads 失败: {e}")
     return intervals
+
+def get_hit_reads(bam_file, chrom, start, end):
+    """提取窗口内命中 reads 的详细信息"""
+    hit_reads = []
+    region = f"{chrom}:{start}-{end}"
+    cmd = ['samtools', 'view', '-F', '4', bam_file, region]
+
+    try:
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for line in process.stdout:
+            cols = line.rstrip('\n').split('\t')
+            if len(cols) < 11:
+                continue
+
+            read_name = cols[0]
+            flag = int(cols[1])
+            read_chrom = cols[2]
+            read_start = int(cols[3])
+            mapq = int(cols[4])
+            cigar = cols[5]
+            seq = cols[9]
+
+            read_len = len(seq)
+            read_end = read_start + read_len
+
+            if read_end < start or read_start > end:
+                continue
+
+            overlap_start = max(start, read_start)
+            overlap_end = min(end, read_end)
+            overlap_bp = max(0, overlap_end - overlap_start + 1)
+
+            strand = '-' if (flag & 16) else '+'
+
+            hit_reads.append({
+                'read_name': read_name,
+                'chromosome': read_chrom,
+                'read_start': read_start,
+                'read_end': read_end,
+                'read_length': read_len,
+                'mapq': mapq,
+                'flag': flag,
+                'strand': strand,
+                'cigar': cigar,
+                'overlap_start': overlap_start,
+                'overlap_end': overlap_end,
+                'overlap_bp': overlap_bp,
+            })
+        process.wait()
+    except Exception as e:
+        print(f"[ERROR] 读取命中 Reads 详情失败: {e}")
+
+    return hit_reads
+
+def write_hit_reads_csv(hit_reads, out_csv):
+    fieldnames = [
+        'read_name', 'chromosome', 'read_start', 'read_end', 'read_length',
+        'mapq', 'flag', 'strand', 'cigar', 'overlap_start', 'overlap_end', 'overlap_bp'
+    ]
+    with open(out_csv, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in hit_reads:
+            writer.writerow(row)
+    print(f"✅ 生成命中 Reads 明细: {out_csv}")
+
+def write_summary(summary_path, sample_name, chrom, center, start_pos, end_pos, depth_vals, hit_reads):
+    total_hits = len(hit_reads)
+    unique_reads = len({x['read_name'] for x in hit_reads})
+    mean_depth = float(np.mean(depth_vals)) if len(depth_vals) > 0 else 0.0
+    max_depth = int(np.max(depth_vals)) if len(depth_vals) > 0 else 0
+    nonzero_depth_bp = int(np.sum(np.array(depth_vals) > 0)) if len(depth_vals) > 0 else 0
+    window_size_bp = end_pos - start_pos + 1
+    coverage_ratio = (nonzero_depth_bp / window_size_bp) if window_size_bp > 0 else 0.0
+
+    with open(summary_path, 'w') as f:
+        f.write(f"sample_name: {sample_name}\n")
+        f.write(f"region: {chrom}:{start_pos}-{end_pos}\n")
+        f.write(f"center: {center}\n")
+        f.write(f"window_size_bp: {window_size_bp}\n")
+        f.write(f"total_hit_reads: {total_hits}\n")
+        f.write(f"unique_hit_reads: {unique_reads}\n")
+        f.write(f"mean_depth: {mean_depth:.4f}\n")
+        f.write(f"max_depth: {max_depth}\n")
+        f.write(f"covered_bp: {nonzero_depth_bp}\n")
+        f.write(f"coverage_ratio: {coverage_ratio:.6f}\n")
+
+    print(f"✅ 生成任务总结: {summary_path}")
 
 def greedy_stacking(intervals, gap=1):
     intervals.sort(key=lambda x: x[0])
@@ -243,8 +332,15 @@ def main():
         plot_local_histogram(depth_pos, depth_vals, chrom, start_pos, end_pos, 
                             f"Coverage Check: {chrom}:{center}", hist_file)
 
-    # Step 2: Pile-up Plot
-    intervals = get_read_intervals(bam_file, chrom, start_pos, end_pos)
+    # Step 2: 命中 reads 统计输出
+    hit_reads = get_hit_reads(bam_file, chrom, start_pos, end_pos)
+    hit_csv = os.path.join(out_dir, f"{prefix}_hit_reads.csv")
+    summary_file = os.path.join(out_dir, f"{prefix}_summary.txt")
+    write_hit_reads_csv(hit_reads, hit_csv)
+    write_summary(summary_file, sample_name, chrom, center, start_pos, end_pos, depth_vals, hit_reads)
+
+    # Step 3: Pile-up Plot
+    intervals = [(x['read_start'], x['read_end']) for x in hit_reads]
     
     if len(intervals) > 0:
         if len(intervals) > 30000:

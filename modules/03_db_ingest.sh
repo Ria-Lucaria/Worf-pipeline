@@ -14,11 +14,11 @@ CONFIG_FILE=$2  # 预留，如果未来有配置文件
 DATE_TAG=$(date +%Y%m%d) # 自动生成今天的日期标签
 
 # ================= 配置区域 =================
-# 输入目录 (必须与 02_align.sh 的输出保持一致)
-INPUT_BAM_DIR="${DIR_ALIGN:-results/02_align}" 
+# 输入目录 (必须与 04_process.sh 的输出保持一致)
+INPUT_BAM_DIR="${DIR_BAM:-results/03_bam}"
 
 # Python 脚本位置
-INGEST_SCRIPT="scripts/bam2mongo.py"
+INGEST_SCRIPT="${PY_SCRIPT_DIR}/bam2mongo.py"
 
 # MongoDB 配置
 MONGO_PORT=30001

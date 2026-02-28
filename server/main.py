@@ -24,7 +24,8 @@ def query_reads(
     chrom: str,
     start: Optional[int] = Query(None, description="Start position (0-based)"),
     end: Optional[int] = Query(None, description="End position (exclusive)"),
-    limit: int = Query(100, ge=1, le=5000, description="Max records to return")
+    # 【修改点】将 le=5000 改为 le=100000 (十万) 或者直接去掉 le 限制
+    limit: int = Query(100, ge=1, le=100000, description="Max records to return")
 ):
     """
     核心查询接口：根据染色体位置提取 Reads

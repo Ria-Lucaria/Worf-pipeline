@@ -1,0 +1,4 @@
+task_id,input_folder,chromosome,center,window,step,background,output_dir,force_run
+sampleA_chr6_31429000,/data/worf/input/UDI001,chr6,31429000,10000,100000,true,/data/worf/input/UDI001/output/task_chr6_31429000,false
+sampleA_chr6_32500000,/data/worf/input/UDI001,chr6,32500000,10000,100000,true,/data/worf/input/UDI001/output/task_chr6_32500000,false
+sampleB_chr7_55000000,/data/worf/input/UDI002,chr7,55000000,15000,100000,true,,true
